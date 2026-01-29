@@ -367,31 +367,57 @@
 
         // Fetch IP Function
         async function fetchIP() {
+            const ipDisplay = document.getElementById('ip-display');
+            const locDisplay = document.getElementById('location-display');
+
             try {
-                const response = await fetch('https://ipapi.co/json/');
-                const data = await response.json();
+                // 1. Try to fetch IPv4 specifically first
+                // api.ipify.org is strict IPv4.
+                const v4Response = await fetch('https://api.ipify.org?format=json');
+                const v4Data = await v4Response.json();
+                const userIP = v4Data.ip;
 
-                // Simulate 'Analysis' time for effect
+                // Display IP immediately
                 setTimeout(() => {
-                    document.getElementById('ip-display').innerText = data.ip;
-
-                    if (data.city && data.country_name) {
-                        const locDisplay = document.getElementById('location-display');
-                        locDisplay.innerHTML = `<span class="material-symbols-outlined text-sm">public</span> ${data.city}, ${data.country_name} (${data.org || 'ISP'})`;
-                        locDisplay.classList.remove('opacity-0');
-                    }
+                    ipDisplay.innerHTML = `<span class="animate-pulse">${userIP}</span>`; // Keep text size logic in CSS
+                    ipDisplay.classList.remove('animate-pulse'); // Remove loading pulse if needed or just keep content
+                    // Actually the inner span was pulsing. Let's just set text.
+                    ipDisplay.innerText = userIP;
                 }, 800);
 
-            } catch (error) {
-                // Fallback if ipapi.co fails (e.g. adblocker)
+                // 2. Fetch Location using the IP we found
                 try {
-                    const fallbackResponse = await fetch('https://api.ipify.org?format=json');
-                    const fallbackData = await fallbackResponse.json();
-                    document.getElementById('ip-display').innerText = fallbackData.ip;
-                    document.getElementById('location-display').innerText = "Location Unknown (Privately Networked)";
-                    document.getElementById('location-display').classList.remove('opacity-0');
+                    const locResponse = await fetch(`https://ipapi.co/${userIP}/json/`);
+                    const locData = await locResponse.json();
+
+                    if (locData.city && locData.country_name) {
+                        setTimeout(() => {
+                            locDisplay.innerHTML = `<span class="material-symbols-outlined text-sm">public</span> ${locData.city}, ${locData.country_name} (${locData.org || 'ISP'})`;
+                            locDisplay.classList.remove('opacity-0');
+                        }, 800);
+                    }
                 } catch (e) {
-                    document.getElementById('ip-display').innerText = "Check Failed";
+                    // Location fetch failed, show generic
+                    setTimeout(() => {
+                        locDisplay.innerText = "Location Unknown";
+                        locDisplay.classList.remove('opacity-0');
+                    }, 800);
+                }
+
+            } catch (error) {
+                // Fallback: If IPv4 fail (e.g. IPv6 only network), try generic ipapi
+                try {
+                    const response = await fetch('https://ipapi.co/json/');
+                    const data = await response.json();
+                    setTimeout(() => {
+                        ipDisplay.innerText = data.ip;
+                        if (data.city) {
+                            locDisplay.innerHTML = `<span class="material-symbols-outlined text-sm">public</span> ${data.city}, ${data.country_name}`;
+                            locDisplay.classList.remove('opacity-0');
+                        }
+                    }, 800);
+                } catch (e) {
+                    ipDisplay.innerText = "Check Failed";
                 }
             }
         }
